@@ -1,0 +1,17 @@
+DiaMOS Plant Dataset - Exploration Report
+==================================================
+
+CLASS DISTRIBUTION:
+  healthy: 43
+  spot: 1768
+  curl: 65
+  slug: 4050
+  Total: 5926
+
+SEVERITY DISTRIBUTION:
+  not_estimable: 3005
+
+ANNOTATION COVERAGE:
+  Total images: 5926
+  With YOLO bbox: 3006
+  With CSV severity: 3005

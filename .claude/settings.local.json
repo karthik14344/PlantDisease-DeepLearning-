@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head -1 /d/college/VI-sem/DL/prj/Pear/annotation/YOLO/leaves/*.txt)"
+    ]
+  }
+}

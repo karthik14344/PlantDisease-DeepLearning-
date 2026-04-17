@@ -1,0 +1,10 @@
+path: D:\college\VI-sem\DL\prj\data\processed
+train: images/train
+val: images/val
+test: images/test
+nc: 4
+names:
+- healthy
+- spot
+- curl
+- slug
