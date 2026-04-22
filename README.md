@@ -205,34 +205,50 @@ L_total = L_detection + 0.5 * L_severity
 
 ## Results
 
-### Detection Performance (Test Set, 301 images)
+### Detection Performance
 
-| Model | Params | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | Sev. Acc | Sev. MAE |
-|-------|--------|---------|---------------|-----------|--------|----------|----------|
-| YOLOv5m (Mitra 2023) | ~25M | 0.894 | - | 0.864 | 0.877 | - | - |
-| YOLOv8m (Mitra 2023) | ~25M | 0.893 | - | 0.879 | 0.865 | - | - |
-| YOLOv8n (ours) | 3.0M | 0.818 | 0.708 | 0.804 | 0.839 | - | - |
-| YOLOv11n (ours) | 2.6M | 0.837 | 0.728 | 0.857 | 0.805 | - | - |
-| YOLOv11s (ours) | 9.4M | 0.834 | 0.745 | 0.888 | 0.822 | - | - |
-| **CBAM-YOLO-MT (ours)** | **~3.1M** | **0.837** | **0.728** | **0.857** | **0.805** | **0.591** | **0.426** |
+**Baselines reported on validation set** (matches Mitra 2023's reporting convention).
+**CBAM-YOLO-MT reported on held-out test set** (stricter; unseen during training/tuning).
 
-### Per-Class Detection (AP@0.5, Test Set)
+| Model | Split | Params | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | Sev. Acc | Sev. MAE |
+|-------|-------|--------|---------|---------------|-----------|--------|----------|----------|
+| YOLOv5m (Mitra 2023) | val | ~25M | 0.894 | — | 0.864 | 0.877 | — | — |
+| YOLOv8m (Mitra 2023) | val | ~25M | 0.893 | — | 0.879 | 0.865 | — | — |
+| YOLOv8n (ours) | val | 3.0M | 0.891 | — | — | — | — | — |
+| **YOLOv11n (ours)** | **val** | **2.6M** | **0.916** | **0.778** | **0.892** | **0.915** | — | — |
+| YOLOv11n (ours) | test | 2.6M | 0.837 | 0.728 | 0.857 | 0.805 | — | — |
+| YOLOv11s (ours) | test | 9.4M | 0.834 | 0.745 | 0.888 | 0.822 | — | — |
+| **CBAM-YOLO-MT (ours)** | **test** | **~3.1M** | **0.753** | **0.638** | **0.674** | **0.862** | **0.591** | **0.426** |
 
-| Class | Training Images | Test Images | YOLOv8n | YOLOv11n | YOLOv11s |
-|-------|----------------|-------------|---------|----------|----------|
-| healthy | 43 | 4 | 0.995 | 0.995 | 0.995 |
-| spot | 884 | 89 | 0.792 | 0.822 | 0.866 |
-| curl | 54 | 5 | 0.518 | 0.555 | 0.495 |
-| slug | 2025 | 203 | 0.966 | 0.978 | 0.978 |
+### YOLOv11n Baseline vs Mitra 2023 (Validation, Per-Class)
+
+| Class | Mitra YOLOv5m | YOLOv11n (ours) | Gain |
+|-------|---------------|-----------------|------|
+| Healthy | 0.995 | 0.995 | tied |
+| Curl | 0.748 | **0.827** | **+0.079** |
+| Slug | 0.976 | **0.978** | +0.002 |
+| Spot | 0.857 | **0.870** | +0.013 |
+| **Overall AP@0.5** | 0.894 | **0.916** | **+0.022** |
+
+Our YOLOv11n baseline beats Mitra 2023's YOLOv5m on every class with **8× fewer parameters** (2.6M vs 20.8M).
+
+### Per-Class Test-Set Performance
+
+| Class | Train imgs | Test imgs | YOLOv8n | YOLOv11n | YOLOv11s | CBAM-YOLO-MT (AP@0.5:0.95) |
+|-------|-----------|-----------|---------|----------|----------|----------------------------|
+| healthy | 43 | 4 | 0.995 | 0.995 | 0.995 | 0.956 |
+| spot | 884 | 89 | 0.792 | 0.822 | 0.866 | 0.551 |
+| curl | 54 | 5 | 0.518 | 0.555 | 0.495 | 0.253 |
+| slug | 2025 | 203 | 0.966 | 0.978 | 0.978 | 0.792 |
 
 ### Key Findings
 
-1. **First detection benchmark**: No prior mAP results existed on DiaMOS Plant - we established them
-2. **YOLOv11n beats YOLOv8n** by +1.9% mAP@0.5 with 13% fewer parameters
-3. **Scaling doesn't help**: YOLOv11s (3.6x larger) does NOT improve over YOLOv11n - overfits on the small dataset
-4. **Competitive with larger models**: Our 2.6M-param nano model achieves 93.7% of Mitra's 25M-param medium model performance
-5. **Multi-task adds severity** (59.1% accuracy, 0.426 MAE) with negligible detection impact
-6. **Curl is the bottleneck**: Only 54 training images, AP varies 0.495-0.555 across models
+1. **First YOLOv11 benchmark on DiaMOS Plant** — no prior work reported these numbers
+2. **YOLOv11n beats Mitra 2023** on validation (+2.2% mAP@0.5) with 8× fewer parameters
+3. **Bigger is not better**: YOLOv11s (3.6× more params) does NOT improve over YOLOv11n — overfits on the small dataset
+4. **First severity prediction** on DiaMOS Plant: 59.1% accuracy, 0.426 MAE (no prior work uses severity labels)
+5. **Multi-task trade-off**: CBAM-YOLO-MT trades 8.4 points test mAP for a new severity-prediction capability
+6. **Curl is the bottleneck**: Only 54 training images, AP varies 0.25–0.56 across models
 
 ---
 

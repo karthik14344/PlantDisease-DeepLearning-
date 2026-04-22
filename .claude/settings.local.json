@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(head -1 /d/college/VI-sem/DL/prj/Pear/annotation/YOLO/leaves/*.txt)"
+      "Bash(head -1 /d/college/VI-sem/DL/prj/Pear/annotation/YOLO/leaves/*.txt)",
+      "Bash(C:/Users/KARTHIK/miniconda3/envs/plantDisease/python.exe scripts/evaluate_multitask_detection.py)"
     ]
   }
 }
