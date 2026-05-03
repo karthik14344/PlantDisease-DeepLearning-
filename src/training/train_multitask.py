@@ -28,6 +28,7 @@ from src.config import (
     WEIGHT_DECAY, WARMUP_EPOCHS, PATIENCE, LAMBDA_SEVERITY,
     DEVICE, NUM_WORKERS, SEVERITY_NOT_ESTIMABLE,
     USE_CBAM, USE_BIFPN, USE_SEVERITY_GATE,
+    INIT_MULTITASK_FROM_BASELINE, BASELINE_CHECKPOINT,
 )
 from src.models.multitask_yolo import (
     MultiTaskYOLO, MultiTaskLoss, SeverityHead, get_neck_channels,
@@ -329,22 +330,33 @@ def run_multitask_training(model_name="yolo11n.pt", lambda_sev=LAMBDA_SEVERITY,
                             num_workers=NUM_WORKERS, pin_memory=True,
                             collate_fn=MultiTaskDataset.collate_fn)
 
-    logger.info(f"Loading base model: {model_name}")
     from ultralytics.nn.tasks import DetectionModel
 
-    # Load pretrained COCO weights
-    yolo = YOLO(model_name)
-    pretrained_sd = yolo.model.state_dict()
+    if INIT_MULTITASK_FROM_BASELINE and BASELINE_CHECKPOINT.exists():
+        # TWO-STAGE STRATEGY: load DiaMOS-trained YOLOv11n baseline (already nc=4)
+        logger.info(f"Two-stage init: loading DiaMOS baseline from {BASELINE_CHECKPOINT}")
+        yolo_baseline = YOLO(str(BASELINE_CHECKPOINT))
+        pretrained_sd = yolo_baseline.model.state_dict()
 
-    # Build a fresh model with correct nc=4 (not COCO's 80)
-    det_model = DetectionModel(cfg=yolo.model.yaml, nc=NUM_CLASSES, verbose=False)
-
-    # Transfer matching pretrained weights (skip detect head class layers)
-    model_sd = det_model.state_dict()
-    filtered = {k: v for k, v in pretrained_sd.items()
-                if k in model_sd and v.shape == model_sd[k].shape}
-    det_model.load_state_dict(filtered, strict=False)
-    logger.info(f"Loaded {len(filtered)}/{len(model_sd)} pretrained layers (nc={NUM_CLASSES})")
+        # Build fresh DetectionModel with nc=4 (matching architecture)
+        det_model = DetectionModel(cfg=yolo_baseline.model.yaml, nc=NUM_CLASSES, verbose=False)
+        model_sd = det_model.state_dict()
+        filtered = {k: v for k, v in pretrained_sd.items()
+                    if k in model_sd and v.shape == model_sd[k].shape}
+        det_model.load_state_dict(filtered, strict=False)
+        logger.info(f"  Loaded {len(filtered)}/{len(model_sd)} layers from DiaMOS baseline "
+                    f"(nc={NUM_CLASSES}). Detection layers already pear-aware.")
+    else:
+        # END-TO-END STRATEGY: load generic COCO pretrained weights
+        logger.info(f"End-to-end init: loading COCO pretrained from {model_name}")
+        yolo = YOLO(model_name)
+        pretrained_sd = yolo.model.state_dict()
+        det_model = DetectionModel(cfg=yolo.model.yaml, nc=NUM_CLASSES, verbose=False)
+        model_sd = det_model.state_dict()
+        filtered = {k: v for k, v in pretrained_sd.items()
+                    if k in model_sd and v.shape == model_sd[k].shape}
+        det_model.load_state_dict(filtered, strict=False)
+        logger.info(f"  Loaded {len(filtered)}/{len(model_sd)} layers from COCO (nc={NUM_CLASSES})")
 
     # Attach required args for v8DetectionLoss
     from types import SimpleNamespace
@@ -386,7 +398,8 @@ def run_multitask_training(model_name="yolo11n.pt", lambda_sev=LAMBDA_SEVERITY,
         output_dir = Path(resume_dir)
     else:
         if run_name is None:
-            run_name = f"yolo11n_multitask_lambda{lambda_sev}_{datetime.now():%Y%m%d_%H%M}"
+            init_tag = "twostage" if INIT_MULTITASK_FROM_BASELINE and BASELINE_CHECKPOINT.exists() else "cocoinit"
+            run_name = f"yolo11n_multitask_{init_tag}_lambda{lambda_sev}_{datetime.now():%Y%m%d_%H%M}"
         output_dir = MODELS_DIR / "multitask" / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
 

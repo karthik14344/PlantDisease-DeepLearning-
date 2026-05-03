@@ -76,6 +76,12 @@ PATIENCE = 100  # Effectively disabled — run full EPOCHS_MULTITASK
 LAMBDA_SEVERITY = 0.5  # Weight for severity loss
 SEVERITY_LOSS_TYPE = "ce"  # "ce" for CrossEntropy, "mse" for regression
 
+# Multi-task init source:
+#   False -> use COCO pretrained weights (yolo11n.pt)  -> end-to-end strategy
+#   True  -> use trained YOLOv11n baseline best.pt     -> two-stage strategy
+INIT_MULTITASK_FROM_BASELINE = True
+BASELINE_CHECKPOINT = MODELS_DIR / "baselines" / "yolo11n_baseline" / "weights" / "best.pt"
+
 # Architectural upgrades (CBAM-YOLO-MT)
 USE_CBAM = True              # Channel + Spatial attention on neck features
 USE_BIFPN = True             # BiFPN-style weighted fusion in severity head

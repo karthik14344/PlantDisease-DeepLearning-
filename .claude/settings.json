@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json; h=json.load\\(open\\('models/multitask/yolo11n_multitask_twostage_lambda0.5_20260502_1029/training_history.json'\\)\\); print\\('Total epochs:', len\\(h.get\\('train_loss', []\\)\\)\\); print\\('Best val:', min\\(h.get\\('val_loss', [99999]\\)\\)\\); print\\('Best sev acc:', max\\(h.get\\('val_sev_acc', [0]\\)\\)\\); print\\('Last epoch sev acc:', h.get\\('val_sev_acc', [0]\\)[-1] if h.get\\('val_sev_acc'\\) else 'N/A'\\); print\\('Last epoch sev mae:', h.get\\('val_sev_mae', [0]\\)[-1] if h.get\\('val_sev_mae'\\) else 'N/A'\\)\")",
+      "Bash(python -c \"import json; h=json.load\\(open\\('models/multitask/yolo11n_multitask_twostage_lambda0.5_20260502_1029/training_history.json'\\)\\); print\\(list\\(h.keys\\(\\)\\)\\); print\\('---'\\); import json as j; print\\(j.dumps\\({k: \\(v[-3:] if isinstance\\(v, list\\) else v\\) for k,v in h.items\\(\\)}, indent=2, default=str\\)\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python scripts/eval_twostage_quick.py)",
+      "Bash(conda run *)"
+    ]
+  }
+}
