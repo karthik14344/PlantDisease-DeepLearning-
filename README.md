@@ -230,7 +230,8 @@ Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest comb
 
 | Variant | Split | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | F1 | Sev. Acc | Sev. MAE |
 |---------|-------|---------|---------------|-----------|--------|------|----------|----------|
-| CBAM-YOLO-MT (end-to-end, COCO init) | test | 0.753 | 0.638 | 0.674 | 0.862 | — | 0.591 | 0.426 |
+| CBAM-YOLO-MT (end-to-end, COCO init) | val | 0.725 | 0.578 | 0.699 | 0.907 | 0.789 | 0.545 | 0.479 |
+| CBAM-YOLO-MT (end-to-end, COCO init) | test | 0.753 | 0.638 | 0.674 | 0.862 | 0.755 | 0.591 | 0.426 |
 | **CBAM-YOLO-MT-TS (two-stage, baseline init)** | **val** | **0.813** | **0.662** | **0.675** | **0.898** | **0.771** | **0.584** | **0.464** |
 | **CBAM-YOLO-MT-TS (two-stage, baseline init)** | **test** | **0.704** | **0.601** | **0.639** | **0.885** | **0.742** | **0.578** | **0.446** |
 
@@ -243,12 +244,22 @@ Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest comb
 | curl | 0.375 | 0.500 | 0.429 | 0.261 |
 | slug | 0.874 | 0.882 | 0.878 | 0.785 |
 
+**Per-class on validation set (CBAM-YOLO-MT, end-to-end COCO init):**
+
+| Class | Precision | Recall | F1 | mAP@0.5:0.95 |
+|-------|-----------|--------|------|---------------|
+| healthy | 0.280 | 0.778 | 0.412 | 0.501 |
+| spot | 0.688 | 0.836 | 0.755 | 0.639 |
+| curl | 0.167 | 0.846 | 0.279 | 0.333 |
+| slug | 0.798 | 0.943 | 0.865 | 0.838 |
+
 ### Findings From the Two-Stage Run
 
-1. **Validation mAP improves notably** (0.813 vs end-to-end's lower val mAP), confirming the baseline init helps the detection branch converge to a stronger optimum on data it has already seen.
-2. **Test mAP drops slightly** (0.704 vs 0.753 end-to-end). The two-stage model is more confident on training-like distributions but generalizes a touch worse on held-out images — it has effectively been trained twice on the same data.
-3. **Severity metrics are roughly tied** (Acc 0.578 vs 0.591). The novel Severity-Aware Channel Gating works regardless of how the detector was initialized.
-4. **Best-checkpoint criterion matters**: `best.pt` was selected by lowest total val loss (epoch 37). The peak severity epoch was 68, with val Sev Acc = 0.682 — but those weights were not saved separately. A future run should track and save a severity-best checkpoint independently.
+1. **Validation mAP improves notably** (0.813 vs 0.725 end-to-end, +0.088), confirming the baseline init helps the detection branch converge to a stronger optimum on data it has already seen.
+2. **Test mAP drops slightly** (0.704 vs 0.753 end-to-end, -0.049). The two-stage model is more confident on training-like distributions but generalizes a touch worse on held-out images — it has effectively been trained twice on the same data.
+3. **Val-vs-test direction flips between variants**: end-to-end has val 0.725 < test 0.753 (held-out happens to be slightly easier), while two-stage has val 0.813 > test 0.704 (clear val-set overfitting from the second pass). This is the cleanest signal that two-stage init is fitting the validation distribution rather than learning a better detector overall.
+4. **Severity metrics are roughly tied** (Acc 0.578 vs 0.591 on test). The novel Severity-Aware Channel Gating works regardless of how the detector was initialized.
+5. **Best-checkpoint criterion matters**: `best.pt` was selected by lowest total val loss (epoch 37). The peak severity epoch was 68, with val Sev Acc = 0.682 — but those weights were not saved separately. A future run should track and save a severity-best checkpoint independently.
 
 ### When to Use Which Variant
 
@@ -272,6 +283,7 @@ Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest comb
 | **YOLOv11n (ours)** | **val** | **2.6M** | **0.916** | **0.778** | **0.892** | **0.915** | — | — |
 | YOLOv11n (ours) | test | 2.6M | 0.837 | 0.728 | 0.857 | 0.805 | — | — |
 | YOLOv11s (ours) | test | 9.4M | 0.834 | 0.745 | 0.888 | 0.822 | — | — |
+| **CBAM-YOLO-MT (ours, end-to-end)** | **val** | **~3.1M** | **0.725** | **0.578** | **0.699** | **0.907** | **0.545** | **0.479** |
 | **CBAM-YOLO-MT (ours, end-to-end)** | **test** | **~3.1M** | **0.753** | **0.638** | **0.674** | **0.862** | **0.591** | **0.426** |
 | **CBAM-YOLO-MT-TS (ours, two-stage)** | **val** | **~3.1M** | **0.813** | **0.662** | **0.675** | **0.898** | **0.584** | **0.464** |
 | **CBAM-YOLO-MT-TS (ours, two-stage)** | **test** | **~3.1M** | **0.704** | **0.601** | **0.639** | **0.885** | **0.578** | **0.446** |
