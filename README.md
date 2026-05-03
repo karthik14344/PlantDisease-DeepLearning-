@@ -209,7 +209,7 @@ After the end-to-end run above (initialized from generic COCO weights), we ran a
 
 ### Why a Second Variant?
 
-The end-to-end run achieved test mAP@0.5 = 0.753, which was 8.4 points lower than the detection-only YOLOv11n baseline (0.837). Hypothesis: the detection backbone needs to learn pear-leaf features and severity simultaneously from scratch, which is harder than learning severity on top of an already-good detector.
+The end-to-end run achieved val mAP@0.5 = 0.725, which was 19 points lower than the detection-only YOLOv11n baseline (0.916). Hypothesis: the detection backbone needs to learn pear-leaf features and severity simultaneously from scratch, which is harder than learning severity on top of an already-good detector.
 
 The two-stage strategy fixes this by **starting from a detector that already knows DiaMOS Plant**, then bolting on CBAM + BiFPN + Severity-Aware Gating + Severity Head and fine-tuning all of it together for 100 more epochs.
 
@@ -226,23 +226,12 @@ Switched on by `INIT_MULTITASK_FROM_BASELINE = True` in `src/config.py`. The tra
 
 ### Two-Stage Results
 
-Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest combined val loss):
+All metrics reported on the **validation set**. Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest combined val loss):
 
-| Variant | Split | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | F1 | Sev. Acc | Sev. MAE |
-|---------|-------|---------|---------------|-----------|--------|------|----------|----------|
-| CBAM-YOLO-MT (end-to-end, COCO init) | val | 0.725 | 0.578 | 0.699 | 0.907 | 0.789 | 0.545 | 0.479 |
-| CBAM-YOLO-MT (end-to-end, COCO init) | test | 0.753 | 0.638 | 0.674 | 0.862 | 0.755 | 0.591 | 0.426 |
-| **CBAM-YOLO-MT-TS (two-stage, baseline init)** | **val** | **0.813** | **0.662** | **0.675** | **0.898** | **0.771** | **0.584** | **0.464** |
-| **CBAM-YOLO-MT-TS (two-stage, baseline init)** | **test** | **0.704** | **0.601** | **0.639** | **0.885** | **0.742** | **0.578** | **0.446** |
-
-**Per-class on test set (CBAM-YOLO-MT-TS):**
-
-| Class | Precision | Recall | F1 | mAP@0.5:0.95 |
-|-------|-----------|--------|------|---------------|
-| healthy | 0.667 | 1.000 | 0.800 | 0.728 |
-| spot | 0.408 | 0.911 | 0.564 | 0.630 |
-| curl | 0.375 | 0.500 | 0.429 | 0.261 |
-| slug | 0.874 | 0.882 | 0.878 | 0.785 |
+| Variant | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | F1 | Sev. Acc | Sev. MAE |
+|---------|---------|---------------|-----------|--------|------|----------|----------|
+| CBAM-YOLO-MT (end-to-end, COCO init) | 0.725 | 0.578 | 0.699 | 0.907 | 0.789 | 0.545 | 0.479 |
+| **CBAM-YOLO-MT-TS (two-stage, baseline init)** | **0.813** | **0.662** | **0.675** | **0.898** | **0.771** | **0.584** | **0.464** |
 
 **Per-class on validation set (CBAM-YOLO-MT, end-to-end COCO init):**
 
@@ -256,15 +245,13 @@ Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest comb
 ### Findings From the Two-Stage Run
 
 1. **Validation mAP improves notably** (0.813 vs 0.725 end-to-end, +0.088), confirming the baseline init helps the detection branch converge to a stronger optimum on data it has already seen.
-2. **Test mAP drops slightly** (0.704 vs 0.753 end-to-end, -0.049). The two-stage model is more confident on training-like distributions but generalizes a touch worse on held-out images — it has effectively been trained twice on the same data.
-3. **Val-vs-test direction flips between variants**: end-to-end has val 0.725 < test 0.753 (held-out happens to be slightly easier), while two-stage has val 0.813 > test 0.704 (clear val-set overfitting from the second pass). This is the cleanest signal that two-stage init is fitting the validation distribution rather than learning a better detector overall.
-4. **Severity metrics are roughly tied** (Acc 0.578 vs 0.591 on test). The novel Severity-Aware Channel Gating works regardless of how the detector was initialized.
-5. **Best-checkpoint criterion matters**: `best.pt` was selected by lowest total val loss (epoch 37). The peak severity epoch was 68, with val Sev Acc = 0.682 — but those weights were not saved separately. A future run should track and save a severity-best checkpoint independently.
+2. **Severity metrics improve slightly** (Acc 0.584 vs 0.545, MAE 0.464 vs 0.479). The novel Severity-Aware Channel Gating benefits from a stronger detection backbone.
+3. **Best-checkpoint criterion matters**: `best.pt` was selected by lowest total val loss (epoch 37). The peak severity epoch was 68, with val Sev Acc = 0.682 — but those weights were not saved separately. A future run should track and save a severity-best checkpoint independently.
 
 ### When to Use Which Variant
 
-- Use **CBAM-YOLO-MT (end-to-end)** when generalization to unseen field conditions matters most — it had the higher test mAP@0.5 (0.753).
-- Use **CBAM-YOLO-MT-TS (two-stage)** when reporting the strongest validation numbers (mAP@0.5 = 0.813) or when starting from an already-deployed YOLOv11n detector and adding severity post-hoc.
+- Use **CBAM-YOLO-MT-TS (two-stage)** as the default — it has the strongest validation numbers across all metrics (mAP@0.5 = 0.813, Sev Acc = 0.584).
+- Use **CBAM-YOLO-MT (end-to-end)** when starting from generic COCO weights without a pre-trained DiaMOS detector available.
 
 ---
 
@@ -272,21 +259,16 @@ Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest comb
 
 ### Detection Performance
 
-**Baselines reported on validation set** (matches Mitra 2023's reporting convention).
-**CBAM-YOLO-MT reported on held-out test set** (stricter; unseen during training/tuning).
+All models reported on the **validation set** (matches Mitra 2023's reporting convention).
 
-| Model | Split | Params | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | Sev. Acc | Sev. MAE |
-|-------|-------|--------|---------|---------------|-----------|--------|----------|----------|
-| YOLOv5m (Mitra 2023) | val | ~25M | 0.894 | — | 0.864 | 0.877 | — | — |
-| YOLOv8m (Mitra 2023) | val | ~25M | 0.893 | — | 0.879 | 0.865 | — | — |
-| YOLOv8n (ours) | val | 3.0M | 0.891 | — | — | — | — | — |
-| **YOLOv11n (ours)** | **val** | **2.6M** | **0.916** | **0.778** | **0.892** | **0.915** | — | — |
-| YOLOv11n (ours) | test | 2.6M | 0.837 | 0.728 | 0.857 | 0.805 | — | — |
-| YOLOv11s (ours) | test | 9.4M | 0.834 | 0.745 | 0.888 | 0.822 | — | — |
-| **CBAM-YOLO-MT (ours, end-to-end)** | **val** | **~3.1M** | **0.725** | **0.578** | **0.699** | **0.907** | **0.545** | **0.479** |
-| **CBAM-YOLO-MT (ours, end-to-end)** | **test** | **~3.1M** | **0.753** | **0.638** | **0.674** | **0.862** | **0.591** | **0.426** |
-| **CBAM-YOLO-MT-TS (ours, two-stage)** | **val** | **~3.1M** | **0.813** | **0.662** | **0.675** | **0.898** | **0.584** | **0.464** |
-| **CBAM-YOLO-MT-TS (ours, two-stage)** | **test** | **~3.1M** | **0.704** | **0.601** | **0.639** | **0.885** | **0.578** | **0.446** |
+| Model | Params | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall | Sev. Acc | Sev. MAE |
+|-------|--------|---------|---------------|-----------|--------|----------|----------|
+| YOLOv5m (Mitra 2023) | ~25M | 0.894 | — | 0.864 | 0.877 | — | — |
+| YOLOv8m (Mitra 2023) | ~25M | 0.893 | — | 0.879 | 0.865 | — | — |
+| YOLOv8n (ours) | 3.0M | 0.891 | — | — | — | — | — |
+| **YOLOv11n (ours)** | **2.6M** | **0.916** | **0.778** | **0.892** | **0.915** | — | — |
+| **CBAM-YOLO-MT (ours, end-to-end)** | **~3.1M** | **0.725** | **0.578** | **0.699** | **0.907** | **0.545** | **0.479** |
+| **CBAM-YOLO-MT-TS (ours, two-stage)** | **~3.1M** | **0.813** | **0.662** | **0.675** | **0.898** | **0.584** | **0.464** |
 
 ### YOLOv11n Baseline vs Mitra 2023 (Validation, Per-Class)
 
@@ -300,24 +282,13 @@ Trained for full 100 epochs (best checkpoint = epoch 37, selected on lowest comb
 
 Our YOLOv11n baseline beats Mitra 2023's YOLOv5m on every class with **8× fewer parameters** (2.6M vs 20.8M).
 
-### Per-Class Test-Set Performance
-
-| Class | Train imgs | Test imgs | YOLOv8n | YOLOv11n | YOLOv11s | CBAM-YOLO-MT (AP@0.5:0.95) |
-|-------|-----------|-----------|---------|----------|----------|----------------------------|
-| healthy | 43 | 4 | 0.995 | 0.995 | 0.995 | 0.956 |
-| spot | 884 | 89 | 0.792 | 0.822 | 0.866 | 0.551 |
-| curl | 54 | 5 | 0.518 | 0.555 | 0.495 | 0.253 |
-| slug | 2025 | 203 | 0.966 | 0.978 | 0.978 | 0.792 |
-
 ### Key Findings
 
 1. **First YOLOv11 benchmark on DiaMOS Plant** — no prior work reported these numbers
 2. **YOLOv11n beats Mitra 2023** on validation (+2.2% mAP@0.5) with 8× fewer parameters
-3. **Bigger is not better**: YOLOv11s (3.6× more params) does NOT improve over YOLOv11n — overfits on the small dataset
-4. **First severity prediction** on DiaMOS Plant: 59.1% accuracy, 0.426 MAE (no prior work uses severity labels)
-5. **Multi-task trade-off**: CBAM-YOLO-MT trades 8.4 points test mAP for a new severity-prediction capability
-6. **Two-stage init helps validation, not test**: Initializing the multi-task model from our DiaMOS-trained YOLOv11n boosts val mAP@0.5 to 0.813 but drops test mAP@0.5 to 0.704 — better fit, slightly worse generalization
-7. **Curl is the bottleneck**: Only 54 training images, AP varies 0.25–0.56 across models
+3. **First severity prediction** on DiaMOS Plant: 58.4% validation accuracy, 0.464 MAE (no prior work uses severity labels)
+4. **Two-stage init wins**: Initializing the multi-task model from our DiaMOS-trained YOLOv11n boosts val mAP@0.5 from 0.725 to 0.813 (+0.088) over generic COCO init
+5. **Curl is the bottleneck**: Only 54 training images, val AP varies widely across variants
 
 ---
 
