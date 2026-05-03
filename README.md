@@ -56,7 +56,7 @@ The model name stands for **C**onvolutional **B**lock **A**ttention **M**odule +
                     +---------v---------+
                     |   YOLOv11n        |
                     |   Backbone        |   Pretrained on COCO (1.2M images)
-                    |   (C3k2 + SPPF)   |   Extracts visual features
+                    |   (feature extractor) |   Extracts visual features
                     +---------+---------+
                               |
                     +---------v---------+
@@ -93,7 +93,7 @@ The model name stands for **C**onvolutional **B**lock **A**ttention **M**odule +
               |                               |
               |                     +---------v---------+
               |                     | Severity Head     |
-              |                     | FC(64->256->128->5)|
+              |                     | (small classifier)|
               |                     +---------+---------+
               |                               |
               v                               v
@@ -105,11 +105,11 @@ The model name stands for **C**onvolutional **B**lock **A**ttention **M**odule +
 ### What Each Component Does
 
 #### 1. YOLOv11n Backbone (Pretrained)
-The backbone is the feature extraction engine. It takes a 640x640 RGB image and produces hierarchical feature maps through a series of convolutional blocks (C3k2 blocks, which are improved CSPNet modules). The SPPF (Spatial Pyramid Pooling Fast) module at the end captures multi-scale context.
+The backbone is the **feature extraction engine**. It takes a 640×640 RGB image and gradually breaks it down into a stack of feature maps — first detecting simple things like edges and colors, then more complex patterns like textures and shapes, and finally high-level patterns like "spotted region" or "curled leaf edge."
 
-We use the **nano** variant (2.6M parameters) intentionally - it is lightweight enough for edge deployment on smartphones or agricultural drones.
+We use the **nano** variant (2.6M parameters) on purpose — it is lightweight enough to run on smartphones or agricultural drones in the field.
 
-The backbone comes **pretrained on COCO** (a dataset of 1.2 million images with 80 object classes). This means it already knows how to detect edges, textures, shapes, and patterns. We fine-tune it to recognize plant disease features.
+The backbone comes **pretrained on COCO** (a dataset of 1.2 million everyday images with 80 object classes). This means it already knows how to recognize edges, textures, shapes, and general visual patterns. We fine-tune it to specialize on plant disease features.
 
 #### 2. YOLOv11n Neck (FPN/PAN)
 The neck combines features from different backbone layers using a Feature Pyramid Network (top-down pathway) and Path Aggregation Network (bottom-up pathway). This produces three output feature maps at different resolutions:
@@ -173,11 +173,16 @@ Instead of simply concatenating P3+P4+P5 features, we use learnable weighted fus
 This lets the model learn that, for example, P5 (global context) matters more for severity estimation than P3 (local detail).
 
 #### 7. Severity Classification Head
-A simple fully-connected classifier:
-- Global Average Pooling: (B, 64, H, W) -> (B, 64)
-- FC(64 -> 256) + BatchNorm + ReLU + Dropout(0.3)
-- FC(256 -> 128) + ReLU + Dropout(0.3)
-- FC(128 -> 5) -> severity logits for 5 classes
+
+A small classifier that turns the fused feature map into one of 5 severity levels (0 = healthy, 4 = high).
+
+**How it works in plain words:**
+
+1. **Summarize the image** — Average the feature map into a short list of 64 numbers, one per feature channel. Think of this as "what disease patterns are present overall."
+2. **Think it through** — Pass those numbers through two small layers (one wider, one narrower) that mix and refine the features.
+3. **Pick a severity level** — A final layer outputs 5 scores, one per severity level. The highest score wins.
+
+We also use light regularization (dropout) during training so the model doesn't memorize the small dataset.
 
 ### Loss Function
 
